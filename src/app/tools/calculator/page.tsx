@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useCallback, useState, useEffect, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -73,33 +73,60 @@ function CalculatorContent() {
     setExpression("")
   }
 
-  const calculate = () => {
-    try {
-      if (!display) return
+  import { useCallback, useState, useEffect, Suspense } from "react"
 
-      const calculationExpression = display.replace(/×/g, "*").replace(/÷/g, "/")
-      const result = new Function("return " + calculationExpression)()
-      const formattedResult = Number.isInteger(result) ? result.toString() : Number(result).toFixed(4)
+const calculate = useCallback(() => {
+  try {
+    if (!display) return
 
-      const calculationString = `${display} = ${formattedResult}`
-      setExpression(calculationString)
-      setDisplay(formattedResult)
-      setHistory((prev) => [calculationString, ...prev.slice(0, 19)])
+    const calculationExpression = display.replace(/×/g, "*").replace(/÷/g, "/")
+    const result = new Function("return " + calculationExpression)()
+    const formattedResult = Number.isInteger(result) ? result.toString() : Number(result).toFixed(4)
 
-      toast({
-        title: "Calculation Complete",
-        description: calculationString,
-      })
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Calculation Error",
-        description: "Invalid expression",
-      })
-      setDisplay("")
-      setExpression("")
+    const calculationString = `${display} = ${formattedResult}`
+    setExpression(calculationString)
+    setDisplay(formattedResult)
+    setHistory((prev) => [calculationString, ...prev.slice(0, 19)])
+
+    toast({
+      title: "Calculation Complete",
+      description: calculationString,
+    })
+  } catch (_error) { // "error" ki jagah "_error" likha hai taake warning na aaye
+    toast({
+      variant: "destructive",
+      title: "Calculation Error",
+      description: "Invalid expression",
+    })
+    setDisplay("")
+    setExpression("")
+  }
+}, [display, toast])
+
+useEffect(() => {
+  const handleKeyPress = (e: KeyboardEvent) => {
+    if (e.key.match(/[0-9]/) || e.key === ".") {
+      e.preventDefault()
+      handleInput(e.key)
+    } else if (e.key.match(/[+\-*/%]/) || e.key === "Enter" || e.key === "=" || e.key === "(" || e.key === ")") {
+      e.preventDefault()
+      if (e.key === "Enter" || e.key === "=") {
+        calculate()
+      } else {
+        handleInput(e.key === "*" ? "×" : e.key === "/" ? "÷" : e.key)
+      }
+    } else if (e.key === "Backspace" || e.key === "Delete") {
+      e.preventDefault()
+      handleDelete()
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      handleClear()
     }
   }
+
+  window.addEventListener("keydown", handleKeyPress)
+  return () => window.removeEventListener("keydown", handleKeyPress)
+}, [calculate])
 
   const buttons = ["C", "(", ")", "÷", "7", "8", "9", "×", "4", "5", "6", "-", "1", "2", "3", "+", "0", ".", "⌫", "="]
 
