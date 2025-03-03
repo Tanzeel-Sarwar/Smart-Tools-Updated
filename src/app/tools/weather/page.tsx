@@ -54,71 +54,71 @@ function WeatherContent() {
   const { toast } = useToast();
 
   const fetchWeatherData = useCallback(
-    async (cityName: string) => {
-      setLoading(true);
-      try {
-        const currentResponse = await fetch(`${API_BASE_URL}/weather?q=${cityName}&units=metric&appid=${API_KEY}`);
-        const forecastResponse = await fetch(`${API_BASE_URL}/forecast?q=${cityName}&units=metric&appid=${API_KEY}`);
+  async (cityName: string) => {
+    setLoading(true);
+    try {
+      const currentResponse = await fetch(`${API_BASE_URL}/weather?q=${cityName}&units=metric&appid=${API_KEY}`);
+      const forecastResponse = await fetch(`${API_BASE_URL}/forecast?q=${cityName}&units=metric&appid=${API_KEY}`);
 
-        if (!currentResponse.ok || !forecastResponse.ok) {
-          throw new Error("City not found");
-        }
-
-        const currentData = await currentResponse.json();
-        const forecastData = await forecastResponse.json();
-
-        const processedData: WeatherData = {
-          city: currentData.name,
-          country: currentData.sys.country,
-          current: {
-            temp: Math.round(currentData.main.temp),
-            humidity: currentData.main.humidity,
-            wind_speed: currentData.wind.speed,
-            weather: {
-              main: currentData.weather[0].main,
-              description: currentData.weather[0].description,
-              icon: currentData.weather[0].icon,
-            },
-          },
-          forecast: forecastData.list
-            .filter((_: unknown, index: number) => index % 8 === 0)
-            .slice(0, 5)
-            .map((day: { dt: number; main: { temp_min: number; temp_max: number }; weather: Array<{ main: string; icon: string }> }) => ({
-              date: new Date(day.dt * 1000).toLocaleDateString("en-US", { weekday: "short" }),
-              temp: {
-                min: Math.round(day.main.temp_min),
-                max: Math.round(day.main.temp_max),
-              },
-              weather: {
-                main: day.weather[0].main,
-                icon: day.weather[0].icon,
-              },
-            })),
-        };
-
-        setWeatherData(processedData);
-        localStorage.setItem("lastSearchedCity", cityName);
-      } catch (error) {
-        console.error(error); // Log the error
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to fetch weather data. Please try again.",
-        });
-      } finally {
-        setLoading(false);
+      if (!currentResponse.ok || !forecastResponse.ok) {
+        throw new Error("City not found");
       }
-    },
-    [API_KEY, API_BASE_URL, toast]
-  );
 
-  useEffect(() => {
-    const lastCity = localStorage.getItem("lastSearchedCity");
-    if (lastCity) {
-      setCity(lastCity);
-      fetchWeatherData(lastCity);
+      const currentData = await currentResponse.json();
+      const forecastData = await forecastResponse.json();
+
+      const processedData: WeatherData = {
+        city: currentData.name,
+        country: currentData.sys.country,
+        current: {
+          temp: Math.round(currentData.main.temp),
+          humidity: currentData.main.humidity,
+          wind_speed: currentData.wind.speed,
+          weather: {
+            main: currentData.weather[0].main,
+            description: currentData.weather[0].description,
+            icon: currentData.weather[0].icon,
+          },
+        },
+        forecast: forecastData.list
+          .filter((_: unknown, index: number) => index % 8 === 0)
+          .slice(0, 5)
+          .map((day: { dt: number; main: { temp_min: number; temp_max: number }; weather: Array<{ main: string; icon: string }> }) => ({
+            date: new Date(day.dt * 1000).toLocaleDateString("en-US", { weekday: "short" }),
+            temp: {
+              min: Math.round(day.main.temp_min),
+              max: Math.round(day.main.temp_max),
+            },
+            weather: {
+              main: day.weather[0].main,
+              icon: day.weather[0].icon,
+            },
+          })),
+      };
+
+      setWeatherData(processedData);
+      localStorage.setItem("lastSearchedCity", cityName);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch weather data. Please try again.",
+      });
+    } finally {
+      setLoading(false);
     }
-  }, [fetchWeatherData]);
+  },
+  [toast]
+);
+
+useEffect(() => {
+  const lastCity = localStorage.getItem("lastSearchedCity");
+  if (lastCity) {
+    setCity(lastCity);
+    fetchWeatherData(lastCity);
+  }
+}, [fetchWeatherData]);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
