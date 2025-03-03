@@ -14,7 +14,6 @@ function CalculatorContent() {
   const [history, setHistory] = useState<string[]>([])
   const { toast } = useToast()
 
-  // Load history from localStorage
   useEffect(() => {
     const savedHistory = localStorage.getItem("calculatorHistory")
     if (savedHistory) {
@@ -22,34 +21,54 @@ function CalculatorContent() {
     }
   }, [])
 
-  // Save history to localStorage
   useEffect(() => {
     localStorage.setItem("calculatorHistory", JSON.stringify(history))
   }, [history])
 
+  const calculate = useCallback(() => {
+    try {
+      if (!display) return
+
+      const calculationExpression = display.replace(/×/g, "*").replace(/÷/g, "/")
+      const result = new Function("return " + calculationExpression)()
+      const formattedResult = Number.isInteger(result) ? result.toString() : Number(result).toFixed(4)
+
+      const calculationString = `${display} = ${formattedResult}`
+      setExpression(calculationString)
+      setDisplay(formattedResult)
+      setHistory((prev) => [calculationString, ...prev.slice(0, 19)])
+
+      toast({
+        title: "Calculation Complete",
+        description: calculationString,
+      })
+    } catch (_error) { // Unused variable warning fix
+      toast({
+        variant: "destructive",
+        title: "Calculation Error",
+        description: "Invalid expression",
+      })
+      setDisplay("")
+      setExpression("")
+    }
+  }, [display, toast])
+
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Handle numeric keys (both main keyboard and numpad)
       if (e.key.match(/[0-9]/) || e.key === ".") {
         e.preventDefault()
         handleInput(e.key)
-      }
-      // Handle operators
-      else if (e.key.match(/[+\-*/%]/) || e.key === "Enter" || e.key === "=" || e.key === "(" || e.key === ")") {
+      } else if (e.key.match(/[+\-*/%]/) || e.key === "Enter" || e.key === "=" || e.key === "(" || e.key === ")") {
         e.preventDefault()
         if (e.key === "Enter" || e.key === "=") {
           calculate()
         } else {
           handleInput(e.key === "*" ? "×" : e.key === "/" ? "÷" : e.key)
         }
-      }
-      // Handle backspace and delete
-      else if (e.key === "Backspace" || e.key === "Delete") {
+      } else if (e.key === "Backspace" || e.key === "Delete") {
         e.preventDefault()
         handleDelete()
-      }
-      // Handle escape
-      else if (e.key === "Escape") {
+      } else if (e.key === "Escape") {
         e.preventDefault()
         handleClear()
       }
@@ -57,79 +76,10 @@ function CalculatorContent() {
 
     window.addEventListener("keydown", handleKeyPress)
     return () => window.removeEventListener("keydown", handleKeyPress)
-  }, [])
-
-  const handleInput = (value: string) => {
-    setDisplay((prev) => prev + value)
-  }
-
-  const handleDelete = () => {
-    setDisplay((prev) => prev.slice(0, -1))
-    setExpression("")
-  }
-
-  const handleClear = () => {
-    setDisplay("")
-    setExpression("")
-  }
-
-  import { useCallback, useState, useEffect, Suspense } from "react"
-
-const calculate = useCallback(() => {
-  try {
-    if (!display) return
-
-    const calculationExpression = display.replace(/×/g, "*").replace(/÷/g, "/")
-    const result = new Function("return " + calculationExpression)()
-    const formattedResult = Number.isInteger(result) ? result.toString() : Number(result).toFixed(4)
-
-    const calculationString = `${display} = ${formattedResult}`
-    setExpression(calculationString)
-    setDisplay(formattedResult)
-    setHistory((prev) => [calculationString, ...prev.slice(0, 19)])
-
-    toast({
-      title: "Calculation Complete",
-      description: calculationString,
-    })
-  } catch (_error) { // "error" ki jagah "_error" likha hai taake warning na aaye
-    toast({
-      variant: "destructive",
-      title: "Calculation Error",
-      description: "Invalid expression",
-    })
-    setDisplay("")
-    setExpression("")
-  }
-}, [display, toast])
-
-useEffect(() => {
-  const handleKeyPress = (e: KeyboardEvent) => {
-    if (e.key.match(/[0-9]/) || e.key === ".") {
-      e.preventDefault()
-      handleInput(e.key)
-    } else if (e.key.match(/[+\-*/%]/) || e.key === "Enter" || e.key === "=" || e.key === "(" || e.key === ")") {
-      e.preventDefault()
-      if (e.key === "Enter" || e.key === "=") {
-        calculate()
-      } else {
-        handleInput(e.key === "*" ? "×" : e.key === "/" ? "÷" : e.key)
-      }
-    } else if (e.key === "Backspace" || e.key === "Delete") {
-      e.preventDefault()
-      handleDelete()
-    } else if (e.key === "Escape") {
-      e.preventDefault()
-      handleClear()
-    }
-  }
-
-  window.addEventListener("keydown", handleKeyPress)
-  return () => window.removeEventListener("keydown", handleKeyPress)
-}, [calculate])
+  }, [calculate])
 
   const buttons = ["C", "(", ")", "÷", "7", "8", "9", "×", "4", "5", "6", "-", "1", "2", "3", "+", "0", ".", "⌫", "="]
-
+}
   return (
     <div className="min-h-screen bg-gray-50">
       <section className="relative py-20 text-center">
