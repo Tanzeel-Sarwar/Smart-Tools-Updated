@@ -1,175 +1,184 @@
-"use client"
+"use client";
 
-import type React from "react"
-import Image from "next/image"
+import type React from "react";
+import Image from "next/image";
 
-import { useState, useEffect, Suspense } from "react"
-import { Cloud, Sun, Moon, Droplets, Wind, Thermometer, Search } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
-import Loader from "@/components/ui/loader"
+import { useState, useEffect, Suspense, useCallback } from "react";
+import { Cloud, Sun, Moon, Droplets, Wind, Thermometer, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import Loader from "@/components/ui/loader";
 
 interface WeatherData {
-  city: string
-  country: string
+  city: string;
+  country: string;
   current: {
-    temp: number
-    humidity: number
-    wind_speed: number
+    temp: number;
+    humidity: number;
+    wind_speed: number;
     weather: {
-      main: string
-      description: string
-      icon: string
-    }
-  }
+      main: string;
+      description: string;
+      icon: string;
+    };
+  };
   forecast: Array<{
-    date: string
+    date: string;
     temp: {
-      min: number
-      max: number
-    }
+      min: number;
+      max: number;
+    };
     weather: {
-      main: string
-      icon: string
-    }
-  }>
+      main: string;
+      icon: string;
+    };
+  }>;
 }
 
 interface City {
-  name: string
-  country: string
+  name: string;
+  country: string;
 }
 
-const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHERMAP_API_KEY
-const API_BASE_URL = "https://api.openweathermap.org/data/2.5"
-const GEO_API_URL = "https://api.openweathermap.org/geo/1.0/direct"
+const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHERMAP_API_KEY;
+const API_BASE_URL = "https://api.openweathermap.org/data/2.5";
+const GEO_API_URL = "https://api.openweathermap.org/geo/1.0/direct";
 
 function WeatherContent() {
-  const [city, setCity] = useState("")
-  const [weatherData, setWeatherData] = useState<WeatherData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [suggestions, setSuggestions] = useState<City[]>([])
-  const { toast } = useToast()
+  const [city, setCity] = useState("");
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<City[]>([]);
+  const { toast } = useToast();
+
+  const fetchWeatherData = useCallback(
+    async (cityName: string) => {
+      setLoading(true);
+      try {
+        const currentResponse = await fetch(`${API_BASE_URL}/weather?q=${cityName}&units=metric&appid=${API_KEY}`);
+        const forecastResponse = await fetch(`${API_BASE_URL}/forecast?q=${cityName}&units=metric&appid=${API_KEY}`);
+
+        if (!currentResponse.ok || !forecastResponse.ok) {
+          throw new Error("City not found");
+        }
+
+        const currentData = await currentResponse.json();
+        const forecastData = await forecastResponse.json();
+
+        const processedData: WeatherData = {
+          city: currentData.name,
+          country: currentData.sys.country,
+          current: {
+            temp: Math.round(currentData.main.temp),
+            humidity: currentData.main.humidity,
+            wind_speed: currentData.wind.speed,
+            weather: {
+              main: currentData.weather[0].main,
+              description: currentData.weather[0].description,
+              icon: currentData.weather[0].icon,
+            },
+          },
+          forecast: forecastData.list
+            .filter((_: unknown, index: number) => index % 8 === 0)
+            .slice(0, 5)
+            .map((day: { dt: number; main: { temp_min: number; temp_max: number }; weather: Array<{ main: string; icon: string }> }) => ({
+              date: new Date(day.dt * 1000).toLocaleDateString("en-US", { weekday: "short" }),
+              temp: {
+                min: Math.round(day.main.temp_min),
+                max: Math.round(day.main.temp_max),
+              },
+              weather: {
+                main: day.weather[0].main,
+                icon: day.weather[0].icon,
+              },
+            })),
+        };
+
+        setWeatherData(processedData);
+        localStorage.setItem("lastSearchedCity", cityName);
+      } catch (error) {
+        console.error(error); // Log the error
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to fetch weather data. Please try again.",
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [API_KEY, API_BASE_URL, toast]
+  );
 
   useEffect(() => {
-    const lastCity = localStorage.getItem("lastSearchedCity")
+    const lastCity = localStorage.getItem("lastSearchedCity");
     if (lastCity) {
-      setCity(lastCity)
-      fetchWeatherData(lastCity)
+      setCity(lastCity);
+      fetchWeatherData(lastCity);
     }
-  }, [])
+  }, [fetchWeatherData]);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
       if (city.length > 2) {
-        const response = await fetch(`${GEO_API_URL}?q=${city}&limit=5&appid=${API_KEY}`)
-        const data = await response.json()
-        setSuggestions(data.map((item: any) => ({ name: item.name, country: item.country })))
+        const response = await fetch(`${GEO_API_URL}?q=${city}&limit=5&appid=${API_KEY}`);
+        const data = await response.json();
+        setSuggestions(
+          data.map((item: { name: string; country: string }) => ({
+            name: item.name,
+            country: item.country,
+          }))
+        );
       } else {
-        setSuggestions([])
+        setSuggestions([]);
       }
-    }
+    };
 
     const debounce = setTimeout(() => {
-      fetchSuggestions()
-    }, 300)
+      fetchSuggestions();
+    }, 300);
 
-    return () => clearTimeout(debounce)
-  }, [city])
-
-  const fetchWeatherData = async (cityName: string) => {
-    setLoading(true)
-    try {
-      const currentResponse = await fetch(`${API_BASE_URL}/weather?q=${cityName}&units=metric&appid=${API_KEY}`)
-      const forecastResponse = await fetch(`${API_BASE_URL}/forecast?q=${cityName}&units=metric&appid=${API_KEY}`)
-
-      if (!currentResponse.ok || !forecastResponse.ok) {
-        throw new Error("City not found")
-      }
-
-      const currentData = await currentResponse.json()
-      const forecastData = await forecastResponse.json()
-
-      const processedData: WeatherData = {
-        city: currentData.name,
-        country: currentData.sys.country,
-        current: {
-          temp: Math.round(currentData.main.temp),
-          humidity: currentData.main.humidity,
-          wind_speed: currentData.wind.speed,
-          weather: {
-            main: currentData.weather[0].main,
-            description: currentData.weather[0].description,
-            icon: currentData.weather[0].icon,
-          },
-        },
-        forecast: forecastData.list
-          .filter((_: any, index: number) => index % 8 === 0)
-          .slice(0, 5)
-          .map((day: any) => ({
-            date: new Date(day.dt * 1000).toLocaleDateString("en-US", { weekday: "short" }),
-            temp: {
-              min: Math.round(day.main.temp_min),
-              max: Math.round(day.main.temp_max),
-            },
-            weather: {
-              main: day.weather[0].main,
-              icon: day.weather[0].icon,
-            },
-          })),
-      }
-
-      setWeatherData(processedData)
-      localStorage.setItem("lastSearchedCity", cityName)
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch weather data. Please try again.",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+    return () => clearTimeout(debounce);
+  }, [city, API_KEY]);
 
   const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (city.trim()) {
-      fetchWeatherData(city)
-      setSuggestions([])
+      fetchWeatherData(city);
+      setSuggestions([]);
     }
-  }
+  };
 
   const handleSuggestionClick = (suggestion: City) => {
-    setCity(`${suggestion.name}, ${suggestion.country}`)
-    fetchWeatherData(`${suggestion.name}, ${suggestion.country}`)
-    setSuggestions([])
-  }
+    setCity(`${suggestion.name}, ${suggestion.country}`);
+    fetchWeatherData(`${suggestion.name}, ${suggestion.country}`);
+    setSuggestions([]);
+  };
 
   const getWeatherIcon = (iconCode: string) => {
     switch (iconCode) {
       case "01d":
-        return <Sun className="w-8 h-8 text-yellow-500" />
+        return <Sun className="w-8 h-8 text-yellow-500" />;
       case "01n":
-        return <Moon className="w-8 h-8 text-gray-300" />
+        return <Moon className="w-8 h-8 text-gray-300" />;
       case "02d":
       case "02n":
       case "03d":
       case "03n":
       case "04d":
       case "04n":
-        return <Cloud className="w-8 h-8 text-gray-400" />
+        return <Cloud className="w-8 h-8 text-gray-400" />;
       case "09d":
       case "09n":
       case "10d":
       case "10n":
-        return <Droplets className="w-8 h-8 text-blue-400" />
+        return <Droplets className="w-8 h-8 text-blue-400" />;
       default:
-        return <Cloud className="w-8 h-8 text-gray-400" />
+        return <Cloud className="w-8 h-8 text-gray-400" />;
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -288,7 +297,7 @@ function WeatherContent() {
         )}
       </div>
     </div>
-  )
+  );
 }
 
 export default function Weather() {
@@ -302,6 +311,5 @@ export default function Weather() {
     >
       <WeatherContent />
     </Suspense>
-  )
+  );
 }
-
