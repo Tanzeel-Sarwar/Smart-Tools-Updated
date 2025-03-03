@@ -112,7 +112,7 @@ export default function About() {
             <div className="order-1 md:order-2">
               <h2 className="text-2xl font-semibold mb-4">Contact Us</h2>
               <p className="text-gray-600">
-                Have questions or suggestions? We'd love to hear from you. Reach out to our team for support and
+                Have questions or suggestions? We&apos;d love to hear from you. Reach out to our team for support and
                 feedback.
               </p>
             </div>
