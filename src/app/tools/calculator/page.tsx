@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -14,6 +14,7 @@ function CalculatorContent() {
   const [history, setHistory] = useState<string[]>([])
   const { toast } = useToast()
 
+  // Load history from localStorage
   useEffect(() => {
     const savedHistory = localStorage.getItem("calculatorHistory")
     if (savedHistory) {
@@ -21,11 +22,58 @@ function CalculatorContent() {
     }
   }, [])
 
+  // Save history to localStorage
   useEffect(() => {
     localStorage.setItem("calculatorHistory", JSON.stringify(history))
   }, [history])
 
-  const calculate = useCallback(() => {
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Handle numeric keys (both main keyboard and numpad)
+      if (e.key.match(/[0-9]/) || e.key === ".") {
+        e.preventDefault()
+        handleInput(e.key)
+      }
+      // Handle operators
+      else if (e.key.match(/[+\-*/%]/) || e.key === "Enter" || e.key === "=" || e.key === "(" || e.key === ")") {
+        e.preventDefault()
+        if (e.key === "Enter" || e.key === "=") {
+          calculate()
+        } else {
+          handleInput(e.key === "*" ? "×" : e.key === "/" ? "÷" : e.key)
+        }
+      }
+      // Handle backspace and delete
+      else if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault()
+        handleDelete()
+      }
+      // Handle escape
+      else if (e.key === "Escape") {
+        e.preventDefault()
+        handleClear()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyPress)
+    return () => window.removeEventListener("keydown", handleKeyPress)
+  }, [])
+
+  const handleInput = (value: string) => {
+    setDisplay((prev) => prev + value)
+  }
+
+  const handleDelete = () => {
+    setDisplay((prev) => prev.slice(0, -1))
+    setExpression("")
+  }
+
+  const handleClear = () => {
+    setDisplay("")
+    setExpression("")
+  }
+
+  const calculate = () => {
     try {
       if (!display) return
 
@@ -42,7 +90,7 @@ function CalculatorContent() {
         title: "Calculation Complete",
         description: calculationString,
       })
-    } catch (_error) { // Unused variable warning fix
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Calculation Error",
@@ -51,35 +99,10 @@ function CalculatorContent() {
       setDisplay("")
       setExpression("")
     }
-  }, [display, toast])
-
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key.match(/[0-9]/) || e.key === ".") {
-        e.preventDefault()
-        handleInput(e.key)
-      } else if (e.key.match(/[+\-*/%]/) || e.key === "Enter" || e.key === "=" || e.key === "(" || e.key === ")") {
-        e.preventDefault()
-        if (e.key === "Enter" || e.key === "=") {
-          calculate()
-        } else {
-          handleInput(e.key === "*" ? "×" : e.key === "/" ? "÷" : e.key)
-        }
-      } else if (e.key === "Backspace" || e.key === "Delete") {
-        e.preventDefault()
-        handleDelete()
-      } else if (e.key === "Escape") {
-        e.preventDefault()
-        handleClear()
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyPress)
-    return () => window.removeEventListener("keydown", handleKeyPress)
-  }, [calculate])
+  }
 
   const buttons = ["C", "(", ")", "÷", "7", "8", "9", "×", "4", "5", "6", "-", "1", "2", "3", "+", "0", ".", "⌫", "="]
-}
+
   return (
     <div className="min-h-screen bg-gray-50">
       <section className="relative py-20 text-center">
